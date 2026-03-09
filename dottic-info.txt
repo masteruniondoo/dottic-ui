@@ -1,0 +1,13 @@
+forge verify-contract \
+>   --rpc-url https://blockscout-testnet.polkadot.io/api/eth-rpc \
+>   --verifier blockscout \
+>   --verifier-url https://blockscout-testnet.polkadot.io/api/ \
+>   0xBE4D1F87b57bA9780a837348e39f6b39693A3F94 \
+>   src/Dottic.sol:Dottic
+Start verifying contract `0xBE4D1F87b57bA9780a837348e39f6b39693A3F94` deployed on polkadot-testnet
+
+Submitting verification for [src/Dottic.sol:Dottic] 0xBE4D1F87b57bA9780a837348e39f6b39693A3F94.
+Submitted contract for verification:
+        Response: `OK`
+        GUID: `be4d1f87b57ba9780a837348e39f6b39693a3f9469ae75d6`
+        URL: https://blockscout-testnet.polkadot.io/address/0xbe4d1f87b57ba9780a837348e39f6b39693a3f94
