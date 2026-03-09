@@ -1,89 +1,32 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { formatEther } from 'viem';
 import {
   useAccount,
+  useConnect,
+  useDisconnect,
   useReadContract,
-  useReadContracts,
-  useWriteContract,
+  useSwitchChain,
   useWaitForTransactionReceipt,
+  useWriteContract,
 } from 'wagmi';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 
-const CONTRACT_ADDRESS = '0xBE4D1F87b57bA9780a837348e39f6b39693A3F94' as const;
+const GRID_SIZE = 10;
+const TILE_COUNT = GRID_SIZE * GRID_SIZE;
+const IMAGE_ID = 'camel';
+const POLKADOT_HUB_TESTNET_CHAIN_ID = 420420417;
+
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DOTTIC_CONTRACT_ADDRESS as `0x${string}` | undefined;
+
+if (!CONTRACT_ADDRESS) {
+  throw new Error('Missing NEXT_PUBLIC_DOTTIC_CONTRACT_ADDRESS');
+}
 
 const ABI = [
-  {
-    inputs: [
-      { internalType: 'uint256', name: '_actionPrice', type: 'uint256' },
-      { internalType: 'bytes32', name: '_solutionHash', type: 'bytes32' },
-    ],
-    stateMutability: 'nonpayable',
-    type: 'constructor',
-  },
-  { inputs: [], name: 'AnswerDoesNotMatchHash', type: 'error' },
-  { inputs: [], name: 'EmptyGuess', type: 'error' },
-  { inputs: [], name: 'GameAlreadyEnded', type: 'error' },
-  { inputs: [], name: 'GameNotEnded', type: 'error' },
-  { inputs: [], name: 'GuessTooShort', type: 'error' },
-  { inputs: [], name: 'InvalidPixelId', type: 'error' },
-  { inputs: [], name: 'MustOpenPixelFirst', type: 'error' },
-  { inputs: [], name: 'NoEligibleOpeners', type: 'error' },
-  { inputs: [], name: 'NotOwner', type: 'error' },
-  { inputs: [], name: 'PixelAlreadyOpened', type: 'error' },
-  { inputs: [], name: 'ThresholdNotReached', type: 'error' },
-  { inputs: [], name: 'WrongPayment', type: 'error' },
-  {
-    anonymous: false,
-    inputs: [{ indexed: false, internalType: 'string', name: 'answer', type: 'string' }],
-    name: 'AnswerRevealed',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'address', name: 'winner', type: 'address' },
-      { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' },
-      { indexed: false, internalType: 'string', name: 'guess', type: 'string' },
-    ],
-    name: 'GameWonByGuess',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'address', name: 'winner', type: 'address' },
-      { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' },
-    ],
-    name: 'GameWonByLuck',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'address', name: 'player', type: 'address' },
-      { indexed: false, internalType: 'string', name: 'guess', type: 'string' },
-      { indexed: false, internalType: 'bool', name: 'correct', type: 'bool' },
-    ],
-    name: 'GuessSubmitted',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'address', name: 'player', type: 'address' },
-      { indexed: true, internalType: 'uint256', name: 'pixelId', type: 'uint256' },
-      { indexed: false, internalType: 'uint256', name: 'openedCount', type: 'uint256' },
-    ],
-    name: 'PixelOpened',
-    type: 'event',
-  },
-  { stateMutability: 'payable', type: 'fallback' },
   {
     inputs: [],
     name: 'ACTION_PRICE',
@@ -93,14 +36,7 @@ const ABI = [
   },
   {
     inputs: [],
-    name: 'GRID_HEIGHT',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'GRID_WIDTH',
+    name: 'openedCount',
     outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
     stateMutability: 'view',
     type: 'function',
@@ -114,114 +50,8 @@ const ABI = [
   },
   {
     inputs: [],
-    name: 'OWNER',
-    outputs: [{ internalType: 'address', name: '', type: 'address' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'SOLUTION_HASH',
-    outputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'TOTAL_PIXELS',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
     name: 'contractBalance',
     outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'uint256', name: 'x', type: 'uint256' }, { internalType: 'uint256', name: 'y', type: 'uint256' }],
-    name: 'coordinatesToPixelId',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'pure',
-    type: 'function',
-  },
-  { inputs: [], name: 'finalizeByLuck', outputs: [], stateMutability: 'nonpayable', type: 'function' },
-  {
-    inputs: [],
-    name: 'gameEnded',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'getOpeners',
-    outputs: [{ internalType: 'address[]', name: '', type: 'address[]' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'string', name: 'guess', type: 'string' }],
-    name: 'guessSolution',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'address', name: '', type: 'address' }],
-    name: 'isOpener',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'uint256', name: 'pixelId', type: 'uint256' }],
-    name: 'openPixel',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'openedCount',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'openerCount',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    name: 'pixelOpened',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'address', name: '', type: 'address' }],
-    name: 'pixelsOpenedByPlayer',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'string', name: 'answer', type: 'string' }],
-    name: 'revealAnswer',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'revealedAnswer',
-    outputs: [{ internalType: 'string', name: '', type: 'string' }],
     stateMutability: 'view',
     type: 'function',
   },
@@ -234,83 +64,48 @@ const ABI = [
   },
   {
     inputs: [],
-    name: 'winner',
-    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    name: 'gameEnded',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
     stateMutability: 'view',
     type: 'function',
   },
-  { stateMutability: 'payable', type: 'receive' },
+  {
+    inputs: [{ internalType: 'uint256', name: 'pixelId', type: 'uint256' }],
+    name: 'openPixel',
+    outputs: [],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'string', name: 'guess', type: 'string' }],
+    name: 'guessSolution',
+    outputs: [],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'finalizeByLuck',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
 ] as const;
 
-function shortAddress(address?: string) {
-  if (!address) return '—';
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+function getTileId(row: number, col: number) {
+  return row * GRID_SIZE + col;
 }
 
-function PixelTile({
-  id,
-  opened,
-  disabled,
-  onClick,
-}: {
-  id: number;
-  opened: boolean;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <motion.button
-      whileHover={{ scale: disabled ? 1 : 1.03 }}
-      whileTap={{ scale: disabled ? 1 : 0.97 }}
-      className={[
-        'aspect-square rounded-2xl border text-xs font-medium shadow-sm transition-all',
-        opened
-          ? 'border-neutral-300 bg-neutral-100 text-neutral-500'
-          : 'border-neutral-800 bg-neutral-900 text-white hover:bg-neutral-800',
-        disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
-      ].join(' ')}
-      onClick={onClick}
-      disabled={disabled}
-      title={opened ? `Pixel ${id} already opened` : `Open pixel ${id}`}
-    >
-      {opened ? 'OPEN' : id}
-    </motion.button>
-  );
-}
+export default function Page() {
+  const { address, isConnected, chainId: connectedChainId } = useAccount();
+  const { connect, connectors, isPending: isConnectPending } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { switchChainAsync, isPending: isSwitchPending } = useSwitchChain();
 
-export default function DotticPuzzlePage() {
-  const { address, isConnected } = useAccount();
-  const [guess, setGuess] = useState('');
-  const [statusText, setStatusText] = useState('Connect your wallet and start opening pixels.');
-
-  const { data: actionPrice, refetch: refetchActionPrice } = useReadContract({
+  const { data: actionPrice } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: ABI,
     functionName: 'ACTION_PRICE',
-  });
-
-  const { data: gridWidth } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'GRID_WIDTH',
-  });
-
-  const { data: gridHeight } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'GRID_HEIGHT',
-  });
-
-  const { data: totalPixels, refetch: refetchTotalPixels } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'TOTAL_PIXELS',
-  });
-
-  const { data: openThreshold, refetch: refetchThreshold } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'OPEN_THRESHOLD',
   });
 
   const { data: openedCount, refetch: refetchOpenedCount } = useReadContract({
@@ -319,10 +114,10 @@ export default function DotticPuzzlePage() {
     functionName: 'openedCount',
   });
 
-  const { data: gameEnded, refetch: refetchGameEnded } = useReadContract({
+  const { data: openThreshold, refetch: refetchOpenThreshold } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: ABI,
-    functionName: 'gameEnded',
+    functionName: 'OPEN_THRESHOLD',
   });
 
   const { data: contractBalance, refetch: refetchContractBalance } = useReadContract({
@@ -331,185 +126,189 @@ export default function DotticPuzzlePage() {
     functionName: 'contractBalance',
   });
 
-  const { data: openerCount, refetch: refetchOpenerCount } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'openerCount',
-  });
-
   const { data: solvedByGuess, refetch: refetchSolvedByGuess } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: ABI,
     functionName: 'solvedByGuess',
   });
 
-  const { data: winner, refetch: refetchWinner } = useReadContract({
+  const { data: gameEnded, refetch: refetchGameEnded } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: ABI,
-    functionName: 'winner',
+    functionName: 'gameEnded',
   });
 
-  const { data: revealedAnswer, refetch: refetchRevealedAnswer } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'revealedAnswer',
-  });
-
-  const { data: isOpener, refetch: refetchIsOpener } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'isOpener',
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { data: myOpenedCount, refetch: refetchMyOpenedCount } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'pixelsOpenedByPlayer',
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const pixelIds = useMemo(() => {
-    const count = Number(totalPixels ?? 100n);
-    return Array.from({ length: count }, (_, i) => i);
-  }, [totalPixels]);
-
-  const { data: pixelStates, refetch: refetchPixelStates } = useReadContracts({
-    contracts: pixelIds.map((pixelId) => ({
-      address: CONTRACT_ADDRESS,
-      abi: ABI,
-      functionName: 'pixelOpened',
-      args: [BigInt(pixelId)],
-    })),
-    query: {
-      enabled: pixelIds.length > 0,
-    },
-  });
-
-  const openedMap = useMemo(() => {
-    return pixelIds.reduce<Record<number, boolean>>((acc, pixelId, idx) => {
-      acc[pixelId] = Boolean(pixelStates?.[idx]?.result);
-      return acc;
-    }, {});
-  }, [pixelIds, pixelStates]);
-
-  const columns = Number(gridWidth ?? 10n);
-  const rows = Number(gridHeight ?? 10n);
-
-  const progressPercent = useMemo(() => {
-    if (!totalPixels || Number(totalPixels) === 0) return 0;
-    return (Number(openedCount ?? 0n) / Number(totalPixels)) * 100;
-  }, [openedCount, totalPixels]);
-
-  const actionCostLabel = actionPrice ? `${formatEther(actionPrice)} DOT` : '—';
-  const prizeLabel = contractBalance ? `${formatEther(contractBalance)} DOT` : '—';
+  const [guess, setGuess] = useState('');
+  const [status, setStatus] = useState('Connect wallet to start opening tiles.');
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const {
-    data: writeHash,
+    data: txHash,
     error: writeError,
     isPending: isWritePending,
     writeContract,
-    reset,
   } = useWriteContract();
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash: writeHash,
+    hash: txHash,
   });
 
   useEffect(() => {
     if (writeError) {
-      setStatusText(writeError.shortMessage || writeError.message || 'Transaction failed.');
+      setStatus(writeError.shortMessage || writeError.message || 'Transaction failed.');
     }
   }, [writeError]);
 
   useEffect(() => {
     if (isWritePending) {
-      setStatusText('Waiting for wallet confirmation...');
+      setStatus('Waiting for wallet confirmation...');
     }
   }, [isWritePending]);
 
   useEffect(() => {
     if (isConfirming) {
-      setStatusText('Transaction submitted. Waiting for confirmation...');
+      setStatus('Transaction submitted. Waiting for confirmation...');
     }
   }, [isConfirming]);
 
   useEffect(() => {
     if (isConfirmed) {
-      setStatusText('Transaction confirmed. Puzzle state updated.');
-      Promise.all([
-        refetchActionPrice(),
-        refetchTotalPixels(),
-        refetchThreshold(),
-        refetchOpenedCount(),
-        refetchGameEnded(),
-        refetchContractBalance(),
-        refetchOpenerCount(),
-        refetchSolvedByGuess(),
-        refetchWinner(),
-        refetchRevealedAnswer(),
-        refetchPixelStates(),
-        refetchIsOpener(),
-        refetchMyOpenedCount(),
-      ]);
-      reset();
+      setStatus('Transaction confirmed. Grid refreshed.');
+      setRefreshNonce((value) => value + 1);
+      refetchOpenedCount();
+      refetchOpenThreshold();
+      refetchContractBalance();
+      refetchSolvedByGuess();
+      refetchGameEnded();
     }
   }, [
     isConfirmed,
-    refetchActionPrice,
     refetchContractBalance,
     refetchGameEnded,
-    refetchIsOpener,
-    refetchMyOpenedCount,
     refetchOpenedCount,
-    refetchOpenerCount,
-    refetchPixelStates,
-    refetchRevealedAnswer,
+    refetchOpenThreshold,
     refetchSolvedByGuess,
-    refetchThreshold,
-    refetchTotalPixels,
-    refetchWinner,
-    reset,
   ]);
 
-  const handleOpenPixel = (pixelId: number) => {
+  const isBusy = isConnectPending || isSwitchPending || isWritePending || isConfirming;
+  const connector = connectors[0];
+
+  const tiles = useMemo(() => {
+    const result: number[] = [];
+    for (let row = 0; row < GRID_SIZE; row += 1) {
+      for (let col = 0; col < GRID_SIZE; col += 1) {
+        result.push(getTileId(row, col));
+      }
+    }
+    return result;
+  }, []);
+
+  const revealAllTiles = Boolean(solvedByGuess || gameEnded);
+  const openedCountNumber = Number(openedCount ?? 0n);
+  const openThresholdNumber = Number(openThreshold ?? 70n);
+  const canFinalizeByLuck = !revealAllTiles && openedCountNumber >= openThresholdNumber;
+  const priceLabel = actionPrice !== undefined ? `${formatEther(actionPrice)} PAS` : 'Loading...';
+  const progressLabel = revealAllTiles ? `${TILE_COUNT} / ${TILE_COUNT}` : `${openedCountNumber} / ${TILE_COUNT}`;
+  const thresholdLabel = `${openThresholdNumber} / ${TILE_COUNT}`;
+  const balanceLabel = contractBalance !== undefined ? `${formatEther(contractBalance)} PAS` : 'Loading...';
+
+  const tileSrc = (tileId: number) =>
+    `/.netlify/functions/get-tile?imageId=${IMAGE_ID}&tileId=${tileId}&contract=${CONTRACT_ADDRESS.toLowerCase()}&revealed=${revealAllTiles ? 1 : 0}&v=${refreshNonce}`;
+
+  const ensurePolkadotChain = async () => {
+    if (connectedChainId === POLKADOT_HUB_TESTNET_CHAIN_ID) return true;
+    try {
+      setStatus('Confirm network switch to Polkadot Hub TestNet in your wallet.');
+      const switchedChain = await switchChainAsync({ chainId: POLKADOT_HUB_TESTNET_CHAIN_ID });
+      if (switchedChain.id !== POLKADOT_HUB_TESTNET_CHAIN_ID) {
+        setStatus('Wrong chain selected. Switch to Polkadot Hub TestNet and retry.');
+        return false;
+      }
+      return true;
+    } catch {
+      setStatus('Network switch was cancelled. Please switch network and retry.');
+      return false;
+    }
+  };
+
+  const handleOpenPixel = async (tileId: number) => {
+    if (revealAllTiles) {
+      setStatus('Game is finished. All tiles are revealed.');
+      return;
+    }
+    if (!isConnected) {
+      setStatus('Connect wallet first.');
+      return;
+    }
     if (!actionPrice) {
-      setStatusText('Action price is still loading.');
+      setStatus('Action price is still loading.');
       return;
     }
 
+    const isRightChain = await ensurePolkadotChain();
+    if (!isRightChain) return;
+
     writeContract({
+      chainId: POLKADOT_HUB_TESTNET_CHAIN_ID,
       address: CONTRACT_ADDRESS,
       abi: ABI,
       functionName: 'openPixel',
-      args: [BigInt(pixelId)],
+      args: [BigInt(tileId)],
       value: actionPrice,
     });
   };
 
-  const handleGuess = () => {
-    if (!guess.trim()) {
-      setStatusText('Please enter a guess first.');
+  const handleGuessSolution = async () => {
+    if (revealAllTiles) {
+      setStatus('Game is already finished.');
+      return;
+    }
+    const value = guess.trim();
+    if (!value) {
+      setStatus('Enter a guess before submitting.');
+      return;
+    }
+    if (!isConnected) {
+      setStatus('Connect wallet first.');
       return;
     }
     if (!actionPrice) {
-      setStatusText('Action price is still loading.');
+      setStatus('Action price is still loading.');
       return;
     }
 
+    const isRightChain = await ensurePolkadotChain();
+    if (!isRightChain) return;
+
     writeContract({
+      chainId: POLKADOT_HUB_TESTNET_CHAIN_ID,
       address: CONTRACT_ADDRESS,
       abi: ABI,
       functionName: 'guessSolution',
-      args: [guess.trim()],
+      args: [value],
       value: actionPrice,
     });
   };
 
-  const handleFinalizeByLuck = () => {
+  const handleFinalizeByLuck = async () => {
+    if (revealAllTiles) {
+      setStatus('Game is already finished.');
+      return;
+    }
+    if (!isConnected) {
+      setStatus('Connect wallet first.');
+      return;
+    }
+    if (!canFinalizeByLuck) {
+      setStatus(`Finalize by luck is available after ${openThresholdNumber} opened tiles.`);
+      return;
+    }
+
+    const isRightChain = await ensurePolkadotChain();
+    if (!isRightChain) return;
+
     writeContract({
+      chainId: POLKADOT_HUB_TESTNET_CHAIN_ID,
       address: CONTRACT_ADDRESS,
       abi: ABI,
       functionName: 'finalizeByLuck',
@@ -517,174 +316,113 @@ export default function DotticPuzzlePage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-neutral-950">
-      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 lg:px-8">
-        <div className="mb-8 grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-          <Card className="rounded-3xl border-neutral-200 shadow-sm">
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-3xl font-semibold tracking-tight">Dottic Puzzle</CardTitle>
-                  <p className="mt-2 max-w-2xl text-sm text-neutral-600">
-                    Open pixels, uncover the image, and submit your best guess on Polkadot Hub testnet.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-                    Contract {shortAddress(CONTRACT_ADDRESS)}
-                  </Badge>
-                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-                    {isConnected ? `Wallet ${shortAddress(address)}` : 'Wallet not connected'}
-                  </Badge>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard label="Action price" value={actionCostLabel} />
-                <StatCard label="Prize pool" value={prizeLabel} />
-                <StatCard label="Opened pixels" value={`${openedCount?.toString() ?? '0'} / ${totalPixels?.toString() ?? '100'}`} />
-                <StatCard label="Threshold" value={openThreshold?.toString() ?? '—'} />
-              </div>
-
-              <div className="mt-6">
-                <div className="mb-2 flex items-center justify-between text-sm text-neutral-600">
-                  <span>Reveal progress</span>
-                  <span>{progressPercent.toFixed(0)}%</span>
-                </div>
-                <div className="h-3 overflow-hidden rounded-full bg-neutral-100">
-                  <motion.div
-                    className="h-full rounded-full bg-neutral-900"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl border-neutral-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">Game state</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <InfoRow label="Grid" value={`${columns} × ${rows}`} />
-              <InfoRow label="Ended" value={gameEnded ? 'Yes' : 'No'} />
-              <InfoRow label="Solved by guess" value={solvedByGuess ? 'Yes' : 'No'} />
-              <InfoRow label="Unique openers" value={openerCount?.toString() ?? '0'} />
-              <InfoRow label="You are opener" value={isOpener ? 'Yes' : 'No'} />
-              <InfoRow label="Your opened pixels" value={myOpenedCount?.toString() ?? '0'} />
-              <InfoRow label="Winner" value={winner ? shortAddress(winner) : '—'} />
-              <InfoRow label="Revealed answer" value={revealedAnswer || 'Not revealed yet'} />
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-neutral-700">
-                {statusText}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-          <Card className="rounded-3xl border-neutral-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">Puzzle grid</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className="grid gap-2"
-                style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+    <main className="min-h-screen bg-white text-neutral-900">
+      <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
+        <header className="mb-6 flex flex-wrap items-center justify-end gap-3">
+          <div className="flex items-center gap-2">
+            {isConnected ? (
+              <Button
+                variant="outline"
+                onClick={() => disconnect()}
+                disabled={isBusy}
+                className="border-violet-800 text-violet-900 hover:bg-violet-100"
               >
-                {pixelIds.map((pixelId) => {
-                  const alreadyOpened = openedMap[pixelId];
-                  const disabled = !isConnected || !!gameEnded || alreadyOpened || isWritePending || isConfirming;
-                  return (
-                    <PixelTile
-                      key={pixelId}
-                      id={pixelId}
-                      opened={alreadyOpened}
-                      disabled={disabled}
-                      onClick={() => handleOpenPixel(pixelId)}
-                    />
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                Disconnect {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => connector && connect({ connector })}
+                disabled={!connector || isBusy}
+                className="bg-violet-800 text-white hover:bg-violet-700"
+              >
+                {isConnectPending ? 'Connecting...' : 'Connect Wallet'}
+              </Button>
+            )}
+          </div>
+        </header>
 
-          <div className="space-y-6">
-            <Card className="rounded-3xl border-neutral-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold">Submit a guess</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+        <section className="mb-4 grid gap-3 lg:grid-cols-[auto_1fr]">
+          <div className="flex items-center justify-center p-3">
+            <Image
+              src="/Logo.png"
+              alt="DOTTIC logo"
+              width={120}
+              height={120}
+              className="h-[120px] w-[120px] rounded-md object-contain"
+              priority
+            />
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-xl border border-violet-800/70 bg-white p-3">
+              <div className="text-xs text-violet-800/70">Game Balance</div>
+              <div className="font-medium">{balanceLabel}</div>
+            </div>
+            <div className="rounded-xl border border-violet-800/70 bg-white p-3">
+              <div className="text-xs text-violet-800/70">Action Price</div>
+              <div className="font-medium">{priceLabel}</div>
+            </div>
+            <div className="rounded-xl border border-violet-800/70 bg-white p-3">
+              <div className="text-xs text-violet-800/70">Opened</div>
+              <div className="font-medium">{progressLabel}</div>
+              <div className="mt-1 text-[11px] text-violet-800/70">
+                At {thresholdLabel} opened, winner will be selected by luck and the full image is revealed.
+              </div>
+            </div>
+            <div className="rounded-xl border border-violet-800/70 bg-white p-3">
+              <div className="mb-2 text-xs text-violet-800/70">Guess the image</div>
+              <div className="flex gap-2">
                 <Input
                   value={guess}
-                  onChange={(e) => setGuess(e.target.value)}
-                  placeholder="Type your answer"
-                  className="h-12 rounded-2xl border-neutral-300"
+                  onChange={(event) => setGuess(event.target.value)}
+                  placeholder={canFinalizeByLuck ? 'Finalize phase reached' : 'Type your guess'}
+                  disabled={isBusy || canFinalizeByLuck}
+                  className="h-9 border-violet-800/70 text-sm focus-visible:ring-violet-700/40"
                 />
                 <Button
-                  onClick={handleGuess}
-                  disabled={!isConnected || !!gameEnded || isWritePending || isConfirming}
-                  className="h-12 w-full rounded-2xl"
+                  onClick={canFinalizeByLuck ? handleFinalizeByLuck : handleGuessSolution}
+                  disabled={isBusy || revealAllTiles}
+                  className="h-9 bg-violet-800 px-3 text-xs text-white hover:bg-violet-700"
                 >
-                  Guess and pay {actionCostLabel}
+                  {canFinalizeByLuck ? 'Finalize by luck' : 'Submit'}
                 </Button>
-                <p className="text-xs leading-5 text-neutral-500">
-                  The contract requires payment for each guess. Only players who opened at least one pixel are eligible to participate.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl border-neutral-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold">Finalize by luck</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button
-                  variant="outline"
-                  onClick={handleFinalizeByLuck}
-                  disabled={!isConnected || !!gameEnded || Number(openedCount ?? 0n) < Number(openThreshold ?? 0n) || isWritePending || isConfirming}
-                  className="h-12 w-full rounded-2xl"
-                >
-                  Finalize lottery flow
-                </Button>
-                <p className="text-xs leading-5 text-neutral-500">
-                  This becomes available only after the open threshold is reached and the game has not already ended.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl border-neutral-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold">Integration notes</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-neutral-600">
-                <p>Use Wagmi + Viem in your app layout and add Polkadot Hub testnet to your chain config.</p>
-                <p>Replace the contract address constant whenever you redeploy.</p>
-                <p>This page already reads live state and writes transactions for opening pixels, guessing, and finalizing.</p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
+
+        <section className="rounded-xl border border-violet-800/70 bg-white p-3">
+          <div className="mb-2 text-sm font-medium">Board (10x10)</div>
+          <div className="grid grid-cols-10 gap-1">
+            {tiles.map((tileId) => (
+              <button
+                key={tileId}
+                type="button"
+                className="relative overflow-hidden rounded border border-violet-800/70 bg-white"
+                onClick={() => handleOpenPixel(tileId)}
+                disabled={isBusy || !isConnected || revealAllTiles}
+                title={`Open tile ${tileId}`}
+              >
+                <Image
+                  src={tileSrc(tileId)}
+                  alt={`Tile ${tileId}`}
+                  width={96}
+                  height={96}
+                  className="aspect-square w-full object-cover"
+                  unoptimized
+                />
+                <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white">
+                  {tileId}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-xl border border-violet-800/70 bg-white p-3 text-sm text-violet-900">
+          {status}
+        </section>
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-neutral-200 p-4">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight">{value}</div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-neutral-100 pb-2">
-      <span className="text-neutral-500">{label}</span>
-      <span className="max-w-[60%] text-right font-medium text-neutral-900">{value}</span>
-    </div>
+    </main>
   );
 }

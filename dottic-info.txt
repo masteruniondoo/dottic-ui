@@ -11,3 +11,22 @@ Submitted contract for verification:
         Response: `OK`
         GUID: `be4d1f87b57ba9780a837348e39f6b39693a3f9469ae75d6`
         URL: https://blockscout-testnet.polkadot.io/address/0xbe4d1f87b57ba9780a837348e39f6b39693a3f94
+
+
+
+forge create src/Dottic.sol:Dottic   --rpc-url $RPC_URL   --private-key $PRIVATE_KEY   --chain polkadot-testnet   --broadcast   --constructor-args 1000000000000000 0x2d76316e2e0292aa0ff91370de117bb1d80f21d4ac3bef1f0d2ed907dae34b3b
+[⠊] Compiling...
+No files changed, compilation skipped
+Deployer: 0xc8690CE0d444CA9115D25E3c21639335b68eb5cF
+Deployed to: 0xB887100BdE4f72A82b0E7FE13e0d324B7775586C
+Transaction hash: 0xb27efe79d57a4619738b5c2c49ae34d8ed097afcacfa5e79941ab7ed878b2d4c
+
+
+forge verify-contract \
+  --rpc-url https://blockscout-testnet.polkadot.io/api/eth-rpc \
+  --verifier blockscout \
+  --verifier-url https://blockscout-testnet.polkadot.io/api/ \
+  0xB887100BdE4f72A82b0E7FE13e0d324B7775586C \
+   src/Dottic.sol:Dottic
+
+

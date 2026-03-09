@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  env: {
+    NEXT_PUBLIC_DOTTIC_CONTRACT_ADDRESS: process.env.DOTTIC_CONTRACT_ADDRESS,
+  },
 };
 
 export default nextConfig;
