@@ -7,4 +7,10 @@
 
 [functions]
   node_bundler = "esbuild"
+
+[functions."get-tile"]
+  included_files = [
+    "private/placeholders/**",
+    "private/tiles/**"
+  ]
   
