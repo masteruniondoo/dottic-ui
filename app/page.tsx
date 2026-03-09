@@ -208,8 +208,8 @@ export default function Page() {
   }, []);
 
   const revealAllTiles = Boolean(solvedByGuess || gameEnded);
-  const openedCountNumber = Number(openedCount ?? 0n);
-  const openThresholdNumber = Number(openThreshold ?? 70n);
+  const openedCountNumber = Number(openedCount ?? 0);
+  const openThresholdNumber = Number(openThreshold ?? 70);
   const canFinalizeByLuck = !revealAllTiles && openedCountNumber >= openThresholdNumber;
   const priceLabel = actionPrice !== undefined ? `${formatEther(actionPrice)} PAS` : 'Loading...';
   const progressLabel = revealAllTiles ? `${TILE_COUNT} / ${TILE_COUNT}` : `${openedCountNumber} / ${TILE_COUNT}`;
