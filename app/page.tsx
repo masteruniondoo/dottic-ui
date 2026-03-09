@@ -155,7 +155,11 @@ export default function Page() {
 
   useEffect(() => {
     if (writeError) {
-      setStatus(writeError.shortMessage || writeError.message || 'Transaction failed.');
+      const message =
+        'shortMessage' in writeError && typeof writeError.shortMessage === 'string'
+          ? writeError.shortMessage
+          : writeError.message;
+      setStatus(message || 'Transaction failed.');
     }
   }, [writeError]);
 
