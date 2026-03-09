@@ -20,11 +20,14 @@ const TILE_COUNT = GRID_SIZE * GRID_SIZE;
 const IMAGE_ID = 'camel';
 const POLKADOT_HUB_TESTNET_CHAIN_ID = 420420417;
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DOTTIC_CONTRACT_ADDRESS as `0x${string}` | undefined;
+const CONTRACT_ADDRESS_ENV = process.env.NEXT_PUBLIC_DOTTIC_CONTRACT_ADDRESS;
 
-if (!CONTRACT_ADDRESS) {
+if (!CONTRACT_ADDRESS_ENV) {
   throw new Error('Missing NEXT_PUBLIC_DOTTIC_CONTRACT_ADDRESS');
 }
+
+const CONTRACT_ADDRESS = CONTRACT_ADDRESS_ENV as `0x${string}`;
+const CONTRACT_ADDRESS_LOWER = CONTRACT_ADDRESS.toLowerCase();
 
 const ABI = [
   {
@@ -217,7 +220,7 @@ export default function Page() {
   const balanceLabel = contractBalance !== undefined ? `${formatEther(contractBalance)} PAS` : 'Loading...';
 
   const tileSrc = (tileId: number) =>
-    `/.netlify/functions/get-tile?imageId=${IMAGE_ID}&tileId=${tileId}&contract=${CONTRACT_ADDRESS.toLowerCase()}&revealed=${revealAllTiles ? 1 : 0}&v=${refreshNonce}`;
+    `/.netlify/functions/get-tile?imageId=${IMAGE_ID}&tileId=${tileId}&contract=${CONTRACT_ADDRESS_LOWER}&revealed=${revealAllTiles ? 1 : 0}&v=${refreshNonce}`;
 
   const ensurePolkadotChain = async () => {
     if (connectedChainId === POLKADOT_HUB_TESTNET_CHAIN_ID) return true;
