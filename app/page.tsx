@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { formatEther } from 'viem';
+import { decodeEventLog, formatEther } from 'viem';
 import {
   useAccount,
   useConnect,
@@ -95,6 +95,16 @@ const ABI = [
     type: 'function',
   },
   {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'player', type: 'address' },
+      { indexed: false, internalType: 'string', name: 'guess', type: 'string' },
+      { indexed: false, internalType: 'bool', name: 'correct', type: 'bool' },
+    ],
+    name: 'GuessSubmitted',
+    type: 'event',
+  },
+  {
     inputs: [],
     name: 'finalizeByLuck',
     outputs: [],
@@ -161,7 +171,7 @@ export default function Page() {
     writeContract,
   } = useWriteContract();
 
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+  const { data: txReceipt, isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
   });
 
@@ -249,10 +259,41 @@ export default function Page() {
       const solvedResult = await refetchSolvedByGuess();
       const solvedNow = Boolean(solvedResult.data);
 
-      if (pendingAction === 'guess' && !solvedNow) {
-        setStatus('Incorrect guess. Try again.');
-      } else if (pendingAction === 'guess' && solvedNow) {
-        setStatus('Correct guess. All tiles are revealed.');
+      if (pendingAction === 'guess') {
+        setGuess('');
+
+        if (txReceipt?.status === 'reverted') {
+          setStatus('Incorrect guess. Try again.');
+          setPendingAction(null);
+          return;
+        }
+
+        let guessWasCorrect: boolean | null = null;
+
+        for (const log of txReceipt?.logs ?? []) {
+          try {
+            const decoded = decodeEventLog({
+              abi: ABI,
+              data: log.data,
+              topics: log.topics,
+            });
+
+            if (decoded.eventName === 'GuessSubmitted') {
+              guessWasCorrect = Boolean(decoded.args.correct);
+              break;
+            }
+          } catch {
+            // Ignore non-matching logs.
+          }
+        }
+
+        if (guessWasCorrect === false) {
+          setStatus('Incorrect guess. Try again.');
+        } else if (guessWasCorrect === true || solvedNow) {
+          setStatus('Correct guess. All tiles are revealed.');
+        } else {
+          setStatus('Incorrect guess. Try again.');
+        }
       } else {
         setStatus('Transaction confirmed. Grid refreshed.');
       }
@@ -264,6 +305,7 @@ export default function Page() {
   }, [
     isConfirmed,
     pendingAction,
+    txReceipt,
     refetchContractBalance,
     refetchGameEnded,
     refetchOpenedCount,
