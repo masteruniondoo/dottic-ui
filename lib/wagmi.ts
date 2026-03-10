@@ -2,27 +2,29 @@ import { createConfig, http } from 'wagmi'
 import { injected } from 'wagmi/connectors'
 import { defineChain } from 'viem'
 
-export const polkadotHubTestnet = defineChain({
-  id: 420420417,
-  name: 'Polkadot Hub TestNet',
-  network: 'polkadot-hub-testnet',
+const POLKADOT_HUB_MAINNET_RPC_URL = process.env.NEXT_PUBLIC_POLKADOT_HUB_RPC_URL ?? 'https://eth-rpc.polkadot.io'
+
+export const polkadotHub = defineChain({
+  id: 420420419,
+  name: 'Polkadot Hub',
+  network: 'polkadot-hub',
   nativeCurrency: {
-    name: 'Paseo',
-    symbol: 'PAS',
+    name: 'DOT',
+    symbol: 'DOT',
     decimals: 18,
   },
   rpcUrls: {
     default: {
-      http: ['https://services.polkadothub-rpc.com/testnet/'],
+      http: [POLKADOT_HUB_MAINNET_RPC_URL],
     },
   },
 })
 
 export const config = createConfig({
-  chains: [polkadotHubTestnet],
+  chains: [polkadotHub],
   connectors: [injected()],
   transports: {
-    [polkadotHubTestnet.id]: http('https://services.polkadothub-rpc.com/testnet/'),
+    [polkadotHub.id]: http(POLKADOT_HUB_MAINNET_RPC_URL),
   },
   ssr: true,
 })

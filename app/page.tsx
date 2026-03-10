@@ -15,11 +15,12 @@ import {
 } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { polkadotHub } from '@/lib/wagmi';
 
 const GRID_SIZE = 10;
 const TILE_COUNT = GRID_SIZE * GRID_SIZE;
 const IMAGE_ID = 'camel';
-const POLKADOT_HUB_TESTNET_CHAIN_ID = 420420417;
+const POLKADOT_HUB_CHAIN_ID = polkadotHub.id;
 
 const CONTRACT_ADDRESS_ENV = process.env.NEXT_PUBLIC_DOTTIC_CONTRACT_ADDRESS;
 
@@ -218,10 +219,10 @@ export default function Page() {
   const openedCountNumber = Number(openedCount ?? 0);
   const openThresholdNumber = Number(openThreshold ?? 70);
   const canFinalizeByLuck = !revealAllTiles && openedCountNumber >= openThresholdNumber;
-  const priceLabel = actionPrice !== undefined ? `${formatEther(actionPrice)} PAS` : 'Loading...';
+  const priceLabel = actionPrice !== undefined ? `${formatEther(actionPrice)} DOT` : 'Loading...';
   const progressLabel = revealAllTiles ? `${TILE_COUNT} / ${TILE_COUNT}` : `${openedCountNumber} / ${TILE_COUNT}`;
   const thresholdLabel = `${openThresholdNumber} / ${TILE_COUNT}`;
-  const balanceLabel = contractBalance !== undefined ? `${formatEther(contractBalance)} PAS` : 'Loading...';
+  const balanceLabel = contractBalance !== undefined ? `${formatEther(contractBalance)} DOT` : 'Loading...';
 
   const tileSrc = (tileId: number) =>
     `/.netlify/functions/get-tile?imageId=${IMAGE_ID}&tileId=${tileId}&contract=${CONTRACT_ADDRESS_LOWER}&revealed=${revealAllTiles ? 1 : 0}&v=${refreshNonce}`;
@@ -318,12 +319,12 @@ export default function Page() {
   ]);
 
   const ensurePolkadotChain = async () => {
-    if (connectedChainId === POLKADOT_HUB_TESTNET_CHAIN_ID) return true;
+    if (connectedChainId === POLKADOT_HUB_CHAIN_ID) return true;
     try {
-      setStatus('Confirm network switch to Polkadot Hub TestNet in your wallet.');
-      const switchedChain = await switchChainAsync({ chainId: POLKADOT_HUB_TESTNET_CHAIN_ID });
-      if (switchedChain.id !== POLKADOT_HUB_TESTNET_CHAIN_ID) {
-        setStatus('Wrong chain selected. Switch to Polkadot Hub TestNet and retry.');
+      setStatus('Confirm network switch to Polkadot Hub in your wallet.');
+      const switchedChain = await switchChainAsync({ chainId: POLKADOT_HUB_CHAIN_ID });
+      if (switchedChain.id !== POLKADOT_HUB_CHAIN_ID) {
+        setStatus('Wrong chain selected. Switch to Polkadot Hub and retry.');
         return false;
       }
       return true;
@@ -355,7 +356,7 @@ export default function Page() {
     if (!isRightChain) return;
 
     writeContract({
-      chainId: POLKADOT_HUB_TESTNET_CHAIN_ID,
+      chainId: POLKADOT_HUB_CHAIN_ID,
       address: CONTRACT_ADDRESS,
       abi: ABI,
       functionName: 'openPixel',
@@ -389,7 +390,7 @@ export default function Page() {
 
     setGuessFeedback(null);
     writeContract({
-      chainId: POLKADOT_HUB_TESTNET_CHAIN_ID,
+      chainId: POLKADOT_HUB_CHAIN_ID,
       address: CONTRACT_ADDRESS,
       abi: ABI,
       functionName: 'guessSolution',
@@ -417,7 +418,7 @@ export default function Page() {
     if (!isRightChain) return;
 
     writeContract({
-      chainId: POLKADOT_HUB_TESTNET_CHAIN_ID,
+      chainId: POLKADOT_HUB_CHAIN_ID,
       address: CONTRACT_ADDRESS,
       abi: ABI,
       functionName: 'finalizeByLuck',

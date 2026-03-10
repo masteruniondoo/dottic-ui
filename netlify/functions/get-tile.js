@@ -23,6 +23,7 @@ exports.handler = async (event) => {
   try {
     const imageId = event.queryStringParameters?.imageId;
     const tileIdRaw = event.queryStringParameters?.tileId;
+    const contractFromQuery = event.queryStringParameters?.contract;
 
     if (!imageId) {
       return bad(400, "Missing imageId");
@@ -46,12 +47,17 @@ exports.handler = async (event) => {
       return bad(500, "Missing RPC_URL");
     }
 
-    if (!CONTRACT_ADDRESS) {
+    const isValidAddress = (value) => /^0x[a-fA-F0-9]{40}$/.test(value);
+    const selectedContract = contractFromQuery && isValidAddress(contractFromQuery)
+      ? contractFromQuery
+      : CONTRACT_ADDRESS;
+
+    if (!selectedContract) {
       return bad(500, "Missing DOTTIC_CONTRACT_ADDRESS");
     }
 
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+    const contract = new ethers.Contract(selectedContract, ABI, provider);
 
     let solvedByGuess = false;
     let gameEnded = false;
