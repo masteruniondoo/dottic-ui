@@ -8,6 +8,7 @@ import {
   useConnect,
   useDisconnect,
   useReadContract,
+  useReadContracts,
   useSwitchChain,
   useWaitForTransactionReceipt,
   useWriteContract,
@@ -80,6 +81,13 @@ const ABI = [
     type: 'function',
   },
   {
+    inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    name: 'pixelOpened',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
     inputs: [{ internalType: 'string', name: 'guess', type: 'string' }],
     name: 'guessSolution',
     outputs: [],
@@ -144,6 +152,7 @@ export default function Page() {
   const [guess, setGuess] = useState('');
   const [status, setStatus] = useState('Connect wallet to start opening tiles.');
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [pendingAction, setPendingAction] = useState<'open' | 'guess' | 'finalize' | null>(null);
 
   const {
     data: txHash,
@@ -163,6 +172,7 @@ export default function Page() {
           ? writeError.shortMessage
           : writeError.message;
       setStatus(message || 'Transaction failed.');
+      setPendingAction(null);
     }
   }, [writeError]);
 
@@ -177,25 +187,6 @@ export default function Page() {
       setStatus('Transaction submitted. Waiting for confirmation...');
     }
   }, [isConfirming]);
-
-  useEffect(() => {
-    if (isConfirmed) {
-      setStatus('Transaction confirmed. Grid refreshed.');
-      setRefreshNonce((value) => value + 1);
-      refetchOpenedCount();
-      refetchOpenThreshold();
-      refetchContractBalance();
-      refetchSolvedByGuess();
-      refetchGameEnded();
-    }
-  }, [
-    isConfirmed,
-    refetchContractBalance,
-    refetchGameEnded,
-    refetchOpenedCount,
-    refetchOpenThreshold,
-    refetchSolvedByGuess,
-  ]);
 
   const isBusy = isConnectPending || isSwitchPending || isWritePending || isConfirming;
   const connector = connectors[0];
@@ -222,6 +213,65 @@ export default function Page() {
   const tileSrc = (tileId: number) =>
     `/.netlify/functions/get-tile?imageId=${IMAGE_ID}&tileId=${tileId}&contract=${CONTRACT_ADDRESS_LOWER}&revealed=${revealAllTiles ? 1 : 0}&v=${refreshNonce}`;
 
+  const { data: tileOpenedResults, refetch: refetchTileOpened } = useReadContracts({
+    contracts: tiles.map((tileId) => ({
+      address: CONTRACT_ADDRESS,
+      abi: ABI,
+      functionName: 'pixelOpened',
+      args: [BigInt(tileId)],
+    })),
+    query: {
+      enabled: tiles.length > 0,
+    },
+  });
+
+  const openedTileMap = useMemo(() => {
+    return tiles.reduce<Record<number, boolean>>((acc, tileId, index) => {
+      acc[tileId] = Boolean(tileOpenedResults?.[index]?.result);
+      return acc;
+    }, {});
+  }, [tileOpenedResults, tiles]);
+
+  useEffect(() => {
+    if (!isConfirmed) return;
+
+    const syncState = async () => {
+      setRefreshNonce((value) => value + 1);
+
+      await Promise.all([
+        refetchOpenedCount(),
+        refetchOpenThreshold(),
+        refetchContractBalance(),
+        refetchGameEnded(),
+        refetchTileOpened(),
+      ]);
+
+      const solvedResult = await refetchSolvedByGuess();
+      const solvedNow = Boolean(solvedResult.data);
+
+      if (pendingAction === 'guess' && !solvedNow) {
+        setStatus('Incorrect guess. Try again.');
+      } else if (pendingAction === 'guess' && solvedNow) {
+        setStatus('Correct guess. All tiles are revealed.');
+      } else {
+        setStatus('Transaction confirmed. Grid refreshed.');
+      }
+
+      setPendingAction(null);
+    };
+
+    void syncState();
+  }, [
+    isConfirmed,
+    pendingAction,
+    refetchContractBalance,
+    refetchGameEnded,
+    refetchOpenedCount,
+    refetchOpenThreshold,
+    refetchSolvedByGuess,
+    refetchTileOpened,
+  ]);
+
   const ensurePolkadotChain = async () => {
     if (connectedChainId === POLKADOT_HUB_TESTNET_CHAIN_ID) return true;
     try {
@@ -241,6 +291,10 @@ export default function Page() {
   const handleOpenPixel = async (tileId: number) => {
     if (revealAllTiles) {
       setStatus('Game is finished. All tiles are revealed.');
+      return;
+    }
+    if (openedTileMap[tileId]) {
+      setStatus(`Tile ${tileId} is already opened.`);
       return;
     }
     if (!isConnected) {
@@ -263,6 +317,7 @@ export default function Page() {
       args: [BigInt(tileId)],
       value: actionPrice,
     });
+    setPendingAction('open');
   };
 
   const handleGuessSolution = async () => {
@@ -295,6 +350,7 @@ export default function Page() {
       args: [value],
       value: actionPrice,
     });
+    setPendingAction('guess');
   };
 
   const handleFinalizeByLuck = async () => {
@@ -320,6 +376,7 @@ export default function Page() {
       abi: ABI,
       functionName: 'finalizeByLuck',
     });
+    setPendingAction('finalize');
   };
 
   return (
@@ -407,8 +464,8 @@ export default function Page() {
                 type="button"
                 className="relative overflow-hidden rounded border border-violet-800/70 bg-white"
                 onClick={() => handleOpenPixel(tileId)}
-                disabled={isBusy || !isConnected || revealAllTiles}
-                title={`Open tile ${tileId}`}
+                disabled={isBusy || !isConnected || revealAllTiles || openedTileMap[tileId]}
+                title={openedTileMap[tileId] ? `Tile ${tileId} is already opened` : `Open tile ${tileId}`}
               >
                 <Image
                   src={tileSrc(tileId)}
@@ -419,7 +476,7 @@ export default function Page() {
                   unoptimized
                 />
                 <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white">
-                  {tileId}
+                  {openedTileMap[tileId] || revealAllTiles ? 'OPENED' : tileId}
                 </span>
               </button>
             ))}
