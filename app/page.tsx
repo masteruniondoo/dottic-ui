@@ -118,6 +118,8 @@ function getTileId(row: number, col: number) {
 }
 
 export default function Page() {
+  type GuessFeedback = { kind: 'error' | 'success'; text: string } | null;
+
   const { address, isConnected, chainId: connectedChainId } = useAccount();
   const { connect, connectors, isPending: isConnectPending } = useConnect();
   const { disconnect } = useDisconnect();
@@ -163,6 +165,7 @@ export default function Page() {
   const [status, setStatus] = useState('Connect wallet to start opening tiles.');
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [pendingAction, setPendingAction] = useState<'open' | 'guess' | 'finalize' | null>(null);
+  const [guessFeedback, setGuessFeedback] = useState<GuessFeedback>(null);
 
   const {
     data: txHash,
@@ -263,7 +266,7 @@ export default function Page() {
         setGuess('');
 
         if (txReceipt?.status === 'reverted') {
-          setStatus('Incorrect guess. Try again.');
+          setGuessFeedback({ kind: 'error', text: 'Incorrect guess. Try again.' });
           setPendingAction(null);
           return;
         }
@@ -288,11 +291,11 @@ export default function Page() {
         }
 
         if (guessWasCorrect === false) {
-          setStatus('Incorrect guess. Try again.');
+          setGuessFeedback({ kind: 'error', text: 'Incorrect guess. Try again.' });
         } else if (guessWasCorrect === true || solvedNow) {
-          setStatus('Correct guess. All tiles are revealed.');
+          setGuessFeedback({ kind: 'success', text: 'Correct guess. All tiles are revealed.' });
         } else {
-          setStatus('Incorrect guess. Try again.');
+          setGuessFeedback({ kind: 'error', text: 'Incorrect guess. Try again.' });
         }
       } else {
         setStatus('Transaction confirmed. Grid refreshed.');
@@ -384,6 +387,7 @@ export default function Page() {
     const isRightChain = await ensurePolkadotChain();
     if (!isRightChain) return;
 
+    setGuessFeedback(null);
     writeContract({
       chainId: POLKADOT_HUB_TESTNET_CHAIN_ID,
       address: CONTRACT_ADDRESS,
@@ -480,7 +484,10 @@ export default function Page() {
               <div className="flex gap-2">
                 <Input
                   value={guess}
-                  onChange={(event) => setGuess(event.target.value)}
+                  onChange={(event) => {
+                    setGuess(event.target.value);
+                    if (guessFeedback) setGuessFeedback(null);
+                  }}
                   placeholder={canFinalizeByLuck ? 'Finalize phase reached' : 'Type your guess'}
                   disabled={isBusy || canFinalizeByLuck}
                   className="h-9 border-violet-800/70 text-sm focus-visible:ring-violet-700/40"
@@ -493,6 +500,17 @@ export default function Page() {
                   {canFinalizeByLuck ? 'Finalize by luck' : 'Submit'}
                 </Button>
               </div>
+              {guessFeedback ? (
+                <div
+                  className={`mt-2 rounded-md border px-2 py-1 text-xs ${
+                    guessFeedback.kind === 'error'
+                      ? 'border-red-200 bg-red-50 text-red-700'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  }`}
+                >
+                  {guessFeedback.text}
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
